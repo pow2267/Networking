@@ -53,42 +53,28 @@ class ViewController: UIViewController, UITableViewDataSource {
         return cell
     }
     
+    // 이 메소드가 동작하는 스레드는 해당 노티피케이션이 발생한 스레드와 동일한 스레드이기 때문에 UI관련된 작업은 메인 스레드를 지정해줘야 함
+    @objc func didReceiveFriendsNotification(_ noti: Notification) {
+        guard let friends: [Friend] = noti.userInfo?["friends"] as? [Friend] else { return }
+        
+        self.friends = friends
+        
+        // 이 코드를 제외한 나머지 코드는 모두 백그라운드에서 실행되는 중
+        DispatchQueue.main.async {
+            self.tableView.reloadData()
+        }
+    }
+    
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        guard let url: URL = URL(string: "https://randomuser.me/api/?results=20&inc=name,email,picture") else {
-            return
-        }
+        NotificationCenter.default.addObserver(self, selector: #selector(self.didReceiveFriendsNotification(_:)), name: DidReceiveFriendsNofitication, object: nil)
+    }
+    
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
         
-        // 실질적으로 실행되는 것 1) 세선 만들기
-        let session: URLSession = URLSession(configuration: .default)
-        
-        // 실질적으로 실행되는 것 2) 데이터 테스크 만들기                 // 클로저는 3) 뒤에 실행된 게 성공하면 실행됨
-        let dataTask: URLSessionDataTask = session.dataTask(with: url, completionHandler: { (data: Data?, response: URLResponse?, error: Error?) in
-            if let error = error {
-                print(error.localizedDescription)
-                return
-            }
-
-            guard let data = data else {
-                return
-            }
-            
-            do {
-                let apiResponse: APIResponse = try JSONDecoder().decode(APIResponse.self, from: data)
-                self.friends = apiResponse.results
-                
-                // 이 코드를 제외한 나머지 코드는 모두 백그라운드에서 실행되는 중
-                DispatchQueue.main.async {
-                    self.tableView.reloadData()
-                }
-            } catch (let err) {
-                print(err.localizedDescription)
-            }
-        })
-        
-        // 실질적으로 실행되는 것 3) 데이터 테스크 실행하기
-        dataTask.resume()
+        requestFreinds()
     }
 }
 
